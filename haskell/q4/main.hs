@@ -1,7 +1,6 @@
 import Data.List.Split (splitOn, chunksOf)
 import Data.List
 
-
 -- Reading Input
 
 readInput :: [String] -> ([Int], [[[Int]]]) 
@@ -19,18 +18,23 @@ readCardRows = map readCardRow
 readCardRow :: String -> [Int]
 readCardRow row = map read (filter (/= "") (splitOn " " row))
 
--- 
+-- Logic
 
-markNumberOnCards :: Int -> [[[Int]]] -> [[[Int]]]
-markNumberOnCards draw = (map . map) (markNumberOnRow draw)
+markDrawOnCards :: Int -> [[[Int]]] -> ([[[Int]]], Int)
+markDrawOnCards draw cards = foldl groupCardResults ([], 0) (map (markDrawOnCard draw) cards)
 
--- markNumberOnCard :: Int -> [[Int]] -> [[Int]]
--- markNumberOnCard draw = map (markNumberOnRow draw)
+groupCardResults :: ([[[Int]]], Int) -> ([[Int]], Int) -> ([[[Int]]], Int) 
+groupCardResults ([], _) (a, b) = ([a], b)
+groupCardResults (xs, r) (a, b) = (a : xs, r + b)
 
-markNumberOnRow :: Int -> [Int] -> [Int]
-markNumberOnRow draw row = [if x == draw then -x else x | x <- row]
+markDrawOnCard :: Int -> [[Int]] -> ([[Int]], Int)
+markDrawOnCard draw precard = let postcard = map (markDrawOnRow draw) precard in
+    if checkCardForBingo postcard 
+        then (postcard, sumNonNegatives postcard * draw)
+        else (postcard, 0)
 
---
+markDrawOnRow :: Int -> [Int] -> [Int]
+markDrawOnRow draw row = [if x == draw then -x else x | x <- row]
 
 checkCardForBingo :: [[Int]] -> Bool
 checkCardForBingo card = any (all (<0)) (card ++ transpose card)
@@ -41,10 +45,13 @@ sumNonNegatives card = sum (map sumNonNegativesRow card)
 sumNonNegativesRow :: [Int] -> Int
 sumNonNegativesRow row = sum (filter (>=0) row)
 
---
+playBingo :: [Int] -> [[[Int]]] -> Int
+playBingo (d : ds) precards = let (postcards, result) = markDrawOnCards d precards in
+    if result /= 0
+        then result
+        else playBingo ds postcards
 
 main :: IO ()
 main = do
-    listOfStrs <- lines <$> readFile "input-small.txt"
-    -- print (let (draw, cards) = readInput listOfStrs in markNumberOnCards 12 cards)
-    print $ sumNonNegatives [[1,1,1],[1,-1,1],[1,1,1]]
+    listOfStrs <- lines <$> readFile "input.txt"
+    print (let (draw, cards) = readInput listOfStrs in playBingo draw cards)
